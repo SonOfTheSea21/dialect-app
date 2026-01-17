@@ -126,7 +126,7 @@ else:
                     
                     # 2. Upload
                     # REPLACE THIS WITH YOUR FOLDER ID FROM PHASE 2
-                    FOLDER_ID = "YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE" 
+                    FOLDER_ID = "19oNbB-y8dWGRNE-2yPAhm0RVsGMdwG54" 
                     upload_to_drive(audio_value.read(), fname, FOLDER_ID)
                     
                     # 3. Update Sheet
@@ -138,4 +138,5 @@ else:
                     text, s_id = get_next_sentence(region)
                     st.session_state.current_text = text
                     st.session_state.current_id = s_id
+
                     st.rerun()
