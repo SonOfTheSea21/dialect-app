@@ -5,6 +5,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from datetime import datetime
+from googleapiclient.errors import HttpError # Add this import at the top if missing
 import io
 import random
 
@@ -51,23 +52,31 @@ def get_next_sentence(region):
     selected = available_sentences.sample(1).iloc[0]
     return selected['sentence_text'], selected['id']
 
+
+
 def upload_to_drive(audio_bytes, filename, folder_id):
-    creds = get_google_creds()
-    drive_service = get_drive_service(creds)
-    
-    file_metadata = {
-        'name': filename,
-        'parents': [folder_id]
-    }
-    
-    media = MediaIoBaseUpload(io.BytesIO(audio_bytes), mimetype='audio/wav')
-    
-    file = drive_service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id'
-    ).execute()
-    return file.get('id')
+    try:
+        creds = get_google_creds()
+        drive_service = get_drive_service(creds)
+        
+        file_metadata = {
+            'name': filename,
+            'parents': [folder_id]
+        }
+        
+        media = MediaIoBaseUpload(io.BytesIO(audio_bytes), mimetype='audio/wav')
+        
+        file = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
+        return file.get('id')
+        
+    except HttpError as error:
+        # This will print the specific error to your app screen
+        st.error(f"An error occurred: {error}")
+        return None
 
 def update_sheet_count(sentence_id):
     creds = get_google_creds()
@@ -140,3 +149,4 @@ else:
                     st.session_state.current_id = s_id
 
                     st.rerun()
+
