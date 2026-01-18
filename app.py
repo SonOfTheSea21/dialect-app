@@ -6,6 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from datetime import datetime
 from googleapiclient.errors import HttpError # Add this import at the top if missing
+from huggingface_hub import HfApi
 import io
 import random
 
@@ -54,29 +55,22 @@ def get_next_sentence(region):
 
 
 
-def upload_to_drive(audio_bytes, filename, folder_id):
+def upload_to_hf(audio_bytes, filename):
     try:
-        creds = get_google_creds()
-        drive_service = get_drive_service(creds)
+        api = HfApi(token=st.secrets["HF_TOKEN"])
+        repo_id = st.secrets["HF_REPO"]
         
-        file_metadata = {
-            'name': filename,
-            'parents': [folder_id]
-        }
-        
-        media = MediaIoBaseUpload(io.BytesIO(audio_bytes), mimetype='audio/wav')
-        
-        file = drive_service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id'
-        ).execute()
-        return file.get('id')
-        
-    except HttpError as error:
-        # This will print the specific error to your app screen
-        st.error(f"An error occurred: {error}")
-        return None
+        # This uploads the file directly to your dataset repo
+        api.upload_file(
+            path_or_fileobj=io.BytesIO(audio_bytes),
+            path_in_repo=f"audio/{filename}", # Saves in an 'audio' folder
+            repo_id=repo_id,
+            repo_type="dataset"
+        )
+        return True
+    except Exception as e:
+        st.error(f"Upload failed: {e}")
+        return False
 
 def update_sheet_count(sentence_id):
     creds = get_google_creds()
@@ -85,7 +79,7 @@ def update_sheet_count(sentence_id):
     
     # Find the cell to update. 
     # NOTE: This is slow for massive sheets, but fine for <5000 rows.
-    cell = sheet.find(sentence_id)
+    cell = sheet.find(str(sentence_id))
     # The count is in column 4 (D), so we update row=cell.row, col=4
     current_val = int(sheet.cell(cell.row, 4).value)
     sheet.update_cell(cell.row, 4, current_val + 1)
@@ -136,7 +130,7 @@ else:
                     # 2. Upload
                     # REPLACE THIS WITH YOUR FOLDER ID FROM PHASE 2
                     FOLDER_ID = "19oNbB-y8dWGRNE-2yPAhm0RVsGMdwG54" 
-                    upload_to_drive(audio_value.read(), fname, FOLDER_ID)
+                    upload_to_hf(audio_value.read(), fname)
                     
                     # 3. Update Sheet
                     update_sheet_count(st.session_state.current_id)
@@ -149,4 +143,5 @@ else:
                     st.session_state.current_id = s_id
 
                     st.rerun()
+
 
