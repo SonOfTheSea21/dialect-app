@@ -127,21 +127,24 @@ else:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     fname = f"{region}_{st.session_state.current_id}_{timestamp}.wav"
                     
-                    # 2. Upload
-                    # REPLACE THIS WITH YOUR FOLDER ID FROM PHASE 2
-                    FOLDER_ID = "19oNbB-y8dWGRNE-2yPAhm0RVsGMdwG54" 
-                    upload_to_hf(audio_value.read(), fname)
+                    # 2. Upload (CHECK IF SUCCESSFUL)
+                    upload_success = upload_to_hf(audio_value.read(), fname)
                     
-                    # 3. Update Sheet
-                    update_sheet_count(st.session_state.current_id)
-                    
-                    st.toast("Saved! Loading next...", icon="✅")
-                    
-                    # 4. Reset for next
-                    text, s_id = get_next_sentence(region)
-                    st.session_state.current_text = text
-                    st.session_state.current_id = s_id
+                    if upload_success:
+                        # 3. Only Update Sheet if Upload Worked
+                        update_sheet_count(st.session_state.current_id)
+                        
+                        st.toast("Saved! Loading next...", icon="✅")
+                        
+                        # 4. Reset for next
+                        text, s_id = get_next_sentence(region)
+                        st.session_state.current_text = text
+                        st.session_state.current_id = s_id
+                        st.rerun()
+                    else:
+                        # If upload failed, do NOT update sheet, do NOT rerun.
+                        # The error message from upload_to_hf function will stay visible.
+                        pass
 
-                    st.rerun()
 
 
