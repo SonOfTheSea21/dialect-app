@@ -108,33 +108,6 @@ def upload_to_hf(audio_bytes, filename, dataset_source, split, region):
 
 st.set_page_config(page_title="Dialect Recorder", layout="centered")
 
-# --- CUSTOM CSS FOR BIGGER & CENTERED UI ---
-st.markdown("""
-<style>
-    /* 1. Center the Audio Widget and Make it Bigger */
-    div[data-testid="stAudioInput"] {
-        margin: 0 auto !important; /* Center horizontally */
-        width: 100% !important; /* Full width of the column */
-        transform: scale(1.2); /* Make it 20% bigger */
-        transform-origin: center top;
-        margin-bottom: 20px !important;
-    }
-
-    /* 2. Center the Submit Button */
-    div[data-testid="stButton"] {
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }
-    
-    /* 3. Style the Text Prompt Box */
-    .stAlert {
-        text-align: center;
-        font-size: 1.2rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # 1. URL Params
 params = st.query_params
 region = params.get("region", None)
@@ -142,7 +115,8 @@ user_id = params.get("user", "guest")
 
 if not region:
     st.title("🇧🇩 Dialect Collection Project")
-    st.write("Please use your assigned link.")
+    st.write("Please use the specific link assigned to you.")
+    st.info("Example: .../?region=barisal&user=yourname")
     st.stop()
 
 if 'current_data' not in st.session_state:
@@ -157,7 +131,7 @@ total_user_score = st.session_state.user_db_count + st.session_state.session_add
 
 if st.session_state.current_data is None:
     st.balloons()
-    st.success("🎉 All sentences for this region are finished!")
+    st.success("🎉 All sentences for this region are finished! Great job!")
 else:
     row = st.session_state.current_data
     current_text = row['sentence_text']
@@ -172,43 +146,53 @@ else:
         progress_percent = 1.0
 
     st.markdown(f"**Volunteer:** `{user_id}`")
-    st.progress(progress_percent, text=f"Total: {total_user_score} / {next_milestone}")
+    st.progress(progress_percent, text=f"Your Total Contribution: {total_user_score} / {next_milestone}")
     
-    st.markdown(f"<h3 style='text-align: center;'>Read in {region.capitalize()}:</h3>", unsafe_allow_html=True)
-    st.info(f"### {current_text}")
+    # --- PROMPT AREA ---
+    st.markdown(f"### Read this in **{region.capitalize()}** dialect:")
     
-    # --- CENTERED RECORDER LAYOUT ---
-    # We use columns to force centering because CSS transform can sometimes be tricky
-    col1, col2, col3 = st.columns([1, 6, 1])
+    # Debug info (Optional: Helps you verify Test vs Train priority)
+    # st.caption(f"Debug: {current_dataset} | {current_split} | {current_id}")
     
-    with col2:
-        audio_value = st.audio_input("Record", key=f"rec_{current_id}")
-        
-        if audio_value:
-            if audio_value.getbuffer().nbytes < 5000: 
-                st.warning("Audio too short.")
-            else:
-                # This button will now be centered by the CSS above
-                if st.button("Submit Recording", type="primary"):
-                    with st.spinner("Saving..."):
-                        # FIX: Timezone for Filename
-                        dhaka_tz = pytz.timezone('Asia/Dhaka')
-                        timestamp = datetime.now(dhaka_tz).strftime("%Y%m%d_%H%M%S")
+    st.info(f"### 🗣️ {current_text}")
+    st.warning("⚠️ Please keep your screen ON while recording.")
+
+    # --- RECORDER ---
+    # Key is dynamic to force reset on new sentence
+    audio_value = st.audio_input("Record", key=f"rec_{current_id}")
+
+    if audio_value:
+        if audio_value.getbuffer().nbytes < 5000: 
+            st.warning("Audio too short.")
+        else:
+            if st.button("Submit Recording"):
+                with st.spinner("Saving..."):
+                    dhaka_tz = pytz.timezone('Asia/Dhaka')
+                    timestamp = datetime.now(dhaka_tz).strftime("%Y%m%d_%H%M%S")
+                    
+                    # Filename: Vashantor_Barisal_train_id123_rakib_time.wav
+                    fname = f"{current_dataset}_{region}_{current_split}_{current_id}_{user_id}_{timestamp}.wav"
+                    
+                    # Upload using the NEW folder structure logic
+                    success = upload_to_hf(
+                        audio_value.read(), 
+                        fname, 
+                        current_dataset, 
+                        current_split, 
+                        region
+                    )
+                    
+                    if success:
+                        # Update Database
+                        update_global_and_user_stats(current_id, user_id)
                         
-                        fname = f"{current_dataset}_{region}_{current_split}_{current_id}_{user_id}_{timestamp}.wav"
+                        # Update Local Session
+                        st.session_state.session_adds += 1
+                        st.toast("Saved! Loading next...", icon="✅")
                         
-                        success = upload_to_hf(
-                            audio_value.read(), 
-                            fname, 
-                            current_dataset, 
-                            current_split, 
-                            region
-                        )
+                        # Fetch NEXT sentence (Will prioritize Test again if available)
+                        new_row = get_next_sentence(region)
+                        st.session_state.current_data = new_row
                         
-                        if success:
-                            update_global_and_user_stats(current_id, user_id)
-                            st.session_state.session_adds += 1
-                            st.toast("Saved! Loading next...", icon="✅")
-                            
-                            st.session_state.current_data = get_next_sentence(region)
-                            st.rerun()
+                        st.rerun()
+
