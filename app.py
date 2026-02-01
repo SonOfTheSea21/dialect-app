@@ -6,6 +6,26 @@ from huggingface_hub import HfApi
 from datetime import datetime
 import pytz # NEW IMPORT FOR TIMEZONE
 import io
+import time
+import requests
+from threading import Thread
+
+# --- KEEPALIVE HACK ---
+def keep_alive():
+    # This thread hits the app every 60 seconds to keep it warm
+    url = "https://dialect-app.streamlit.app"  # <--- REPLACE WITH YOUR ACTUAL URL
+    while True:
+        try:
+            requests.get(url)
+        except Exception:
+            pass
+        time.sleep(60)
+
+# Start the background thread
+if 'keep_alive_started' not in st.session_state:
+    t = Thread(target=keep_alive, daemon=True)
+    t.start()
+    st.session_state.keep_alive_started = True
 
 # --- CONFIGURATION ---
 SCOPES = [
@@ -195,4 +215,5 @@ else:
                         st.session_state.current_data = new_row
                         
                         st.rerun()
+
 
