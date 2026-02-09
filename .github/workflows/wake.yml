@@ -1,0 +1,28 @@
+name: Wake Streamlit App
+
+on:
+  schedule:
+    # Runs every 30 minutes
+    - cron: "*/30 * * * *"
+  workflow_dispatch: # Allows manual trigger for testing
+
+jobs:
+  wake_up_robot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Robot Dependencies
+        run: |
+          pip install selenium webdriver-manager
+
+      - name: Run Wake Script
+        env:
+          STREAMLIT_APP_URL: "https://dialect-app.streamlit.app"
+        run: python wake_script.py
